@@ -3,7 +3,7 @@ from langchain_groq import ChatGroq
 
 
 llm = ChatGroq(
-    model="deepseek-r1-distill-qwen-32b",
+    model="qwen-2.5-coder-32b",
     temperature=0,
     max_tokens=5000
 )
