@@ -2,3 +2,4 @@ __pycache__/
 storage/
 vosk-model-ru-0.22/
 .DS_Store
+.langgraph_api

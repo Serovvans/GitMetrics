@@ -1,0 +1,10 @@
+{
+    "dependencies": ["."],
+    "graphs": {
+      "error_analysis_graph": "./ai/graphs/error_analysis_graph.py:error_analysis_graph",
+      "custom_criteria_graph": "./ai/graphs/custom_criteria_graph.py:custom_criteria_graph",
+      "complexity_analysis_graph": "./ai/graphs/complexity_graph.py:complexity_analysis_graph",
+      "chat_graph": "./ai/graphs/chat_graph.py:chat_graph"
+    },
+    "env": "../.env"
+  }
