@@ -1,8 +1,7 @@
-from GitMetrics.ai.graphs.error_analysis_graph import code_analysis_graph
+from ai.graphs.linters_graph import linters_graph
 
-result = code_analysis_graph.invoke({
-    "repo_url": "https://github.com/Serovvans/auto_pandas"
-})
+result = linters_graph.invoke({
+    "repo_url": "https://github.com/ScarletFlame611/OOP_Laba"
+}, {"recursion_limit": 500})
 
-print(result["analysis_results"])
-print(result["error"])
+print(result)

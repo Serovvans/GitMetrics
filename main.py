@@ -1,4 +1,4 @@
-from GitMetrics.ai.graphs.error_analysis_graph import code_analysis_graph
+from ai.graphs.linters_graph import linters_graph
 from IPython.display import Image, display
 
 # result = code_analysis_graph.invoke({
@@ -7,4 +7,8 @@ from IPython.display import Image, display
 
 # print(result)
 
-display(Image(code_analysis_graph.get_graph().draw_mermaid_png()))
+png_data = linters_graph.get_graph().draw_mermaid_png()
+with open('workflow_graph.png', 'wb') as f:
+    f.write(png_data)
+
+print("Граф сохранен как workflow_graph.png")
