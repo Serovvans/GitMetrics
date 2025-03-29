@@ -1,6 +1,7 @@
 import os
 import git
 import tempfile
+import torch
 
 from typing import List
 from langchain_core.tools import tool
@@ -78,10 +79,12 @@ def initialize_vector_db_from_github(repo_url: str, storage_base_path: str = "st
         # Login to HuggingFace
         login(token=os.getenv("HF_TOKEN"))
         
+        device = "mps" if torch.backends.mps.is_available() else "cpu"
+        
         # Initialize embeddings model (optimized for multilingual semantic similarity)
         embeddings = HuggingFaceEmbeddings(
             model_name="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
-            model_kwargs={'device': 'mps', 'trust_remote_code': True},
+            model_kwargs={'device': device, 'trust_remote_code': True},
             encode_kwargs={'normalize_embeddings': True}  # For cosine similarity
         )
         

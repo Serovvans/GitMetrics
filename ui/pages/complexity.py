@@ -42,79 +42,59 @@ def show_complexity_page():
     # Устанавливаем выбранную метрику
     st.session_state["selected_metric"] = "Сложность кода"
 
-    # Загружаем отчет о сложности кода
-    complexity_report = load_complexity_report(repo_name)
-    
-    if complexity_report:
-        # Вычисляем общую сложность кода по всем файлам
-        total_complexity = sum(file_info["total_complexity"] for file_info in complexity_report.values())
-        st.metric("Общая сложность кода", total_complexity, help="Сумма сложности всех файлов в репозитории")
+    try:
+        linters_data = load_complexity_report(repo_name)
         
-        # Создаем DataFrame для отображения метрик по файлам
-        file_metrics = []
-        for file_path, file_info in complexity_report.items():
-            file_metrics.append({
-                "Файл": file_path,
-                "Общая сложность": file_info["total_complexity"],
-                "Средняя сложность": round(file_info["average_complexity"], 2),
-                "Количество проблемных фрагментов": len(file_info["fragments"])
-            })
+        # Рассчитываем общее количество ошибок
+        total_code_smells = sum(item['error_count'] for item in linters_data)
         
-        df = pd.DataFrame(file_metrics)
+        # Выводим общую метрику Code Smells
+        st.metric("Всего Code Smells", total_code_smells, 
+                 help="Общее количество проблем, обнаруженных в последнем коммите")
         
-        # Сортируем по общей сложности (от большей к меньшей)
-        df = df.sort_values(by="Общая сложность", ascending=False)
+        # Формируем данные для визуализации
+        files = [item['file'] for item in linters_data]
+        error_counts = [item['error_count'] for item in linters_data]
         
-        # Отображаем столбчатую диаграмму вместо линейного графика
-        st.subheader("Метрики сложности по файлам")
+        # Создаем DataFrame для таблицы и диаграммы
+        df = pd.DataFrame({
+            "Файл": files,
+            "Количество ошибок": error_counts
+        })
         
-        # Отбираем только файлы с ненулевой сложностью для диаграммы
-        chart_df = df[df["Общая сложность"] > 0]
+        # Сортируем по количеству ошибок (по убыванию)
+        df = df.sort_values(by="Количество ошибок", ascending=False)
+        
+        # Отображаем столбчатую диаграмму
+        st.subheader("Распределение ошибок по файлам")
+        
+        # Фильтруем файлы с ненулевым количеством ошибок
+        chart_df = df[df["Количество ошибок"] > 0]
         
         if not chart_df.empty:
             # Создаем столбчатую диаграмму
             st.bar_chart(
-                chart_df.set_index("Файл")["Общая сложность"],
+                chart_df.set_index("Файл")["Количество ошибок"],
                 use_container_width=True
             )
         else:
-            st.info("Нет файлов с ненулевой сложностью")
+            st.info("Нет файлов с ошибками")
         
-        # Подготовка данных для таблицы проблемных файлов
+        # Отображаем таблицу с проблемными файлами
         st.subheader("Проблемные файлы")
         
-        # Создаем список файлов, содержащих проблемные фрагменты
-        problem_files = []
-        for file_path, file_info in complexity_report.items():
-            if file_info["fragments"]:
-                # Собираем типы ошибок из фрагментов
-                error_descriptions = []
-                for fragment in file_info["fragments"]:
-                    if "description" in fragment:
-                        # Берем первое предложение из описания для краткости
-                        first_sentence = fragment["description"].split(".")[0] + "."
-                        if first_sentence not in error_descriptions:
-                            error_descriptions.append(first_sentence)
-                
-                problem_files.append({
-                    "Файл": file_path,
-                    "Количество": len(file_info["fragments"]),
-                    "Ошибка": ", ".join(error_descriptions) if error_descriptions else "Высокая цикломатическая сложность"
-                })
+        # При нажатии на кнопку "Подробнее о Code Smells" выбирается первый файл с ошибками
+        if st.button("Подробнее о недочётах"):
+            # Находим первый файл с ошибками
+            for file in files:
+                file_data = next((item for item in linters_data if item['file'] == file and item['error_count'] > 0), None)
+                if file_data:
+                    st.session_state["selected_problem_file"] = file
+                    st.session_state["selected_main_tab"] = "Проблемные файлы"
+                    break
         
-        if problem_files:
-            problem_df = pd.DataFrame(problem_files)
-            problem_df = problem_df.sort_values(by="Количество", ascending=False)
-            
-            # При нажатии на кнопку выбирается первый файл
-            if st.button("Подробнее о недочётах") and not problem_df.empty:
-                st.session_state["selected_problem_file"] = problem_df["Файл"].iloc[0]
-                st.session_state["selected_main_tab"] = "Проблемные файлы"
-            
-            # Отображаем таблицу с проблемными файлами
-            st.dataframe(problem_df, use_container_width=True)
-        else:
-            st.info("Проблемных файлов не обнаружено")
-    else:
-        # Если отчет не найден, показываем сообщение об ошибке
-        st.error("Не удалось загрузить отчет о сложности кода. Убедитесь, что он существует в директории storage/{repo_name}/complexity_report.json")
+        # Отображаем таблицу
+        st.dataframe(df[["Файл", "Количество ошибок"]], use_container_width=True)
+        
+    except Exception as e:
+        st.error(f"Ошибка при обработке данных: {str(e)}")

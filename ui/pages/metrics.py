@@ -8,6 +8,11 @@ def get_short_repo_name(url: str) -> str:
     parts = url.split("/")
     return parts[-1] if parts else "unknown"
 
+def get_linters_score(linters_data):
+    sum_score = sum(item['error_count'] for item in linters_data)
+    
+    return sum_score
+
 def load_json(filepath: str):
     if os.path.exists(filepath):
         with open(filepath, "r", encoding="utf-8") as file:
@@ -26,6 +31,11 @@ def get_error_score(error_data):
 def show_metrics_page():
     st.title("📊 Метрики")
 
+    # Добавляем кнопку "Перейти к задачам"
+    if st.button("🚀 Перейти к задачам", key="open_tasks_btn", help="Открыть страницу задач", use_container_width=True):
+        st.session_state["page"] = "tasks-page"
+        st.experimental_rerun()
+
     if "repositories" not in st.session_state:
         st.session_state["repositories"] = []
     if "selected_repo_index" not in st.session_state:
@@ -41,12 +51,15 @@ def show_metrics_page():
     
     complexity_path = f"storage/{short_name}/complexity_report.json"
     error_path = f"storage/{short_name}/error_report.json"
+    linters_path = f"storage/{short_name}/linters_report.json"
 
     complexity_data = load_json(complexity_path)
     error_data = load_json(error_path)
+    linters_data = load_json(linters_path)
 
     avg_complexity = calculate_average_complexity(complexity_data) if complexity_data else "N/A"
     error_score = get_error_score(error_data) if error_data else "N/A"
+    linters_score = get_linters_score(linters_data) if linters_data else "N/A"
     
     st.markdown("""
         <style>
@@ -84,7 +97,11 @@ def show_metrics_page():
 
     with cols[0]:
         st.markdown(
-            f'<div class="card complexity"><p>Сложность кода</p><div class="circle">{avg_complexity}</div></div>',
+            '<div class="card complexity">'
+            '<h3>Сложность кода</h3>'
+            f'<div class="circle">{avg_complexity}</div>'
+            '<p>Вот и ваша сложность кода</p>'
+            '</div>',
             unsafe_allow_html=True
         )
     
@@ -92,8 +109,8 @@ def show_metrics_page():
         st.markdown(
             '<div class="card code_smells">'
             '<h3>Code Smells</h3>'
-            '<div class="circle">25%</div>'
-            '<p>Наши специальные линтеры говорят...</p>'
+            f'<div class="circle">{linters_score}</div>'
+            '<p>Наши линтеры нашли ошибок</p>'
             '</div>',
             unsafe_allow_html=True
         )

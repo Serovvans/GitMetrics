@@ -17,7 +17,7 @@ def load_repository_data(repo_name, selected_metric):
     
     Args:
         repo_name (str): Name of the repository being analyzed
-        selected_metric (str): Selected metric type ("Сложность кода" or "Ошибки")
+        selected_metric (str): Selected metric type ("Сложность кода", "Ошибки", or "Code Smells")
         
     Returns:
         dict: Report data
@@ -27,6 +27,8 @@ def load_repository_data(repo_name, selected_metric):
         report_path = os.path.join("storage", repo_name, "complexity_report.json")
     elif selected_metric == "Ошибки":
         report_path = os.path.join("storage", repo_name, "error_report.json")
+    elif selected_metric == "Code Smells":
+        report_path = os.path.join("storage", repo_name, "linters_report.json")
     
     try:
         with open(report_path, 'r', encoding='utf-8') as f:
@@ -37,6 +39,7 @@ def load_repository_data(repo_name, selected_metric):
     except json.JSONDecodeError:
         st.error(f"Ошибка при чтении JSON из файла: {report_path}")
         return {}
+
 
 def load_source_file(repo_name, file_path):
     """
@@ -60,9 +63,29 @@ def load_source_file(repo_name, file_path):
         st.error(f"Ошибка при чтении файла с исходным кодом: {str(e)}")
         return ""
 
+
 def extract_base_filename(full_path):
     """Extract the base filename from a full path."""
     return os.path.basename(full_path)
+
+
+def clean_fixed_code(fixed_code):
+    """
+    Remove the prefix from fixed code.
+    
+    Args:
+        fixed_code (str): Code with prefix
+        
+    Returns:
+        str: Code without prefix
+    """
+    if not fixed_code:
+        return ""
+    
+    # Remove prefix pattern: """File filename. Add your description here."""
+    pattern = r'^"""File [^.]+\. Add your description here\."""\n\n?'
+    return re.sub(pattern, '', fixed_code)
+
 
 def draw_problem_sidebar(prefix):
     """
@@ -74,7 +97,7 @@ def draw_problem_sidebar(prefix):
     st.sidebar.title("Проблемные файлы")
     
     # Выбор метрики для отображения проблемных файлов
-    metrics_options = ["Сложность кода", "Ошибки"]
+    metrics_options = ["Сложность кода", "Ошибки", "Code Smells"]
     if "selected_metric" not in st.session_state:
         st.session_state["selected_metric"] = metrics_options[0]
     
@@ -118,6 +141,21 @@ def draw_problem_sidebar(prefix):
                     "file_path": file_path,  # Используем относительный путь
                     "issues": file_data.get("metrics", {}).get("total_issues", 0)
                 })
+    elif selected_metric == "Code Smells":
+        # Обработка данных для Code Smells
+        for file_data in report_data:
+            file_name = file_data.get("file", "")
+            error_count = file_data.get("error_count", 0)
+            fixed_code = file_data.get("fixed_code", "")
+            
+            # Добавляем только файлы с ошибками или с исправленным кодом
+            if error_count > 0 or fixed_code:
+                files_list.append({
+                    "file_name": file_name,
+                    "file_path": file_name,
+                    "issues": error_count,
+                    "has_fixed_code": bool(fixed_code)
+                })
     
     if not files_list:
         st.sidebar.info("Нет проблемных файлов для выбранной метрики.")
@@ -132,10 +170,13 @@ def draw_problem_sidebar(prefix):
             button_label = f"{file_name} ({issues_count} проблем)"
             if "complexity" in file:
                 button_label += f" (сложность: {file['complexity']})"
+            elif "has_fixed_code" in file and file["has_fixed_code"]:
+                button_label += " (есть исправления)"
                 
             if st.sidebar.button(button_label, key=f"{prefix}_file_{idx}"):
                 st.session_state["selected_problem_file"] = file["file_path"]
                 st.session_state["selected_problem_file_name"] = file_name
+
 
 def prepare_issue_tooltips(repo_name, file_path, selected_metric):
     """
@@ -192,7 +233,10 @@ def prepare_issue_tooltips(repo_name, file_path, selected_metric):
                     "criticality": issue.get("criticality", "medium")
                 }
     
+    # Для Code Smells нет tooltips с привязкой к строкам, поэтому здесь они не обрабатываются
+    
     return tooltips
+
 
 def show_problem_file(repo_name):
     """
@@ -211,10 +255,45 @@ def show_problem_file(repo_name):
     
     st.title(f"Анализ файла: {file_name}")
     st.write(f"Метрика: {selected_metric}")
-    selected_repo = st.session_state["repositories"][st.session_state["selected_repo_index"]]
-    short_name = get_short_repo_name(selected_repo["url"])
-    repo_name = short_name
-    # Загрузка исходного кода файла
+    
+    if "repositories" in st.session_state and "selected_repo_index" in st.session_state:
+        selected_repo = st.session_state["repositories"][st.session_state["selected_repo_index"]]
+        short_name = get_short_repo_name(selected_repo["url"])
+        repo_name = short_name
+    
+    # Специальная обработка для Code Smells
+    if selected_metric == "Code Smells":
+        report_data = load_repository_data(repo_name, selected_metric)
+        
+        # Найти данные выбранного файла
+        file_data = None
+        for item in report_data:
+            if item.get("file") == file_path:
+                file_data = item
+                break
+        
+        if file_data:
+            # Если есть исправленный код, отобразить его
+            fixed_code = file_data.get("fixed_code", "")
+            if fixed_code:
+                # Удаляем префикс из исправленного кода
+                cleaned_code = clean_fixed_code(fixed_code)
+                
+                st.subheader("Исправленный код:")
+                st.code(cleaned_code, language="python")
+                
+                # Показать всплывающее окно с кнопкой
+                button_clicked = st.button("В чат")
+                if button_clicked:
+                    st.session_state["selected_main_tab"] = "Кастомные метрики"
+            else:
+                st.warning(f"Для файла {file_name} отсутствует исправленный код.")
+        else:
+            st.error(f"Данные для файла {file_name} не найдены.")
+        
+        return
+    
+    # Загрузка исходного кода файла для других метрик
     st.write(f"Попытка загрузить файл: {repo_name}, {file_path}")
     source_code = load_source_file(repo_name, file_path)
     
