@@ -46,15 +46,16 @@ def show_complexity_page():
         linters_data = load_complexity_report(repo_name)
         
         # Рассчитываем общее количество ошибок
-        total_code_smells = sum(item['error_count'] for item in linters_data)
+        total_code_smells = sum(file_data.get('total_complexity', 0) for file_data in linters_data.values())
         
         # Выводим общую метрику Code Smells
         st.metric("Всего Code Smells", total_code_smells, 
                  help="Общее количество проблем, обнаруженных в последнем коммите")
         
         # Формируем данные для визуализации
-        files = [item['file'] for item in linters_data]
-        error_counts = [item['error_count'] for item in linters_data]
+        files = [file_data['file_path'] for file_data in linters_data.values()]
+        error_counts = [file_data.get('total_complexity', 0) for file_data in linters_data.values()]
+
         
         # Создаем DataFrame для таблицы и диаграммы
         df = pd.DataFrame({

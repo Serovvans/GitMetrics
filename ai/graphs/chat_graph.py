@@ -25,7 +25,7 @@ def is_code_related(state: ChatState):
     prompt = prompt_template.format(last_message=last_message)
     
     llm = ChatGroq(
-        model="deepseek-r1-distill-llama-70b",
+        model="gemma2-9b-it",
         temperature=0,
         max_tokens=10
     )

@@ -2,6 +2,10 @@ import streamlit as st
 from ui.pages import add_repository, chat, metrics, complexity, mistakes, code_smells, custom, problem_mistakes
 from ui.sidebar import draw_common_sidebar
 from ui.pages.problem_mistakes import draw_problem_sidebar
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 def main():
     st.set_page_config(layout="wide")
