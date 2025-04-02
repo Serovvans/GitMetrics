@@ -30,12 +30,15 @@ def retrieve_context(query: str, vector_db_path: str) -> List[str]:
     Returns:
         Релевантные фрагменты контекста
     """
-    # Инициализируем эмбеддинг-функцию
+    
+    device = "mps" if torch.backends.mps.is_available() else "cpu"
+    
     embeddings = HuggingFaceEmbeddings(
-        model_name="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
-        model_kwargs={'device': 'mps'},
+        model_name="emb_model",
+        model_kwargs={'device': device, 'trust_remote_code': True},
         encode_kwargs={'normalize_embeddings': True}
     )
+
     
     # Загружаем базу данных с эмбеддинг-функцией
     db = Chroma(
@@ -83,10 +86,11 @@ def initialize_vector_db_from_github(repo_url: str, storage_base_path: str = "st
         
         # Initialize embeddings model (optimized for multilingual semantic similarity)
         embeddings = HuggingFaceEmbeddings(
-            model_name="sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+            model_name="emb_model",
             model_kwargs={'device': device, 'trust_remote_code': True},
-            encode_kwargs={'normalize_embeddings': True}  # For cosine similarity
+            encode_kwargs={'normalize_embeddings': True}
         )
+
         
         # Create the default text splitter for non-code files
         default_splitter = RecursiveCharacterTextSplitter(
